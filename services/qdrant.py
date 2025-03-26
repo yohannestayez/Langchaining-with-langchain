@@ -15,8 +15,12 @@ class QdrantManager:
         self.client = QdrantClient(url=Config.QDRANT_URL)
         self._ensure_collections()
     
-    def _ensure_collections(self):
-        collections = ["book_chunks", "conversations"]
+    def _ensure_collections(self,collection=None):
+        collections=[]
+        if collection:
+            collections=[collection]
+        if not collections:
+            collections = ["book_chunks", "conversations"]
         for name in collections:
             if not self.client.collection_exists(collection_name=name):
                 logging.info(f"Creating missing collection: {name}")
@@ -38,6 +42,8 @@ class QdrantManager:
         
         logging.info(f"Processing {len(chunks)} chunks for storage in collection {collection}")
         points_to_upsert = []
+
+        self._ensure_collections(collection)
         
         for idx, chunk in enumerate(chunks):
             chunk=chunk["text"]
@@ -100,6 +106,53 @@ class QdrantManager:
         )
         logging.info(f"Search returned {len(results)} results")
         return results
+    def retrieve_memory(self, query, similarity_threshold=0.8, limit=5, collection=None):
+        """
+        Retrieve memories (chunks) from the specified collection based on a query and similarity threshold.
+        """
+        collections=[]
+        if collection:
+            collections=[collection]
+
+        if not collection:
+            collections = ["conversations", "book_chunks"]
+        matching_chunks = []
+        for collection in collections:
+            logging.info(f"Retrieving memories from collection {collection} with query: {query}")
+            logging.info(f"Using similarity threshold: {similarity_threshold}, limit: {limit}")
+            
+            # Generate embedding for the query
+            vector = GeminiEmbedder.embed(text=query)
+            
+            # Search the collection
+            search_results = self.client.search(
+                collection_name=collection,
+                query_vector=vector,
+                limit=limit
+            )
+            
+            # Filter results based on similarity threshold
+            
+            for result in search_results:
+                if result.score >= similarity_threshold:
+                    chunk_info = {
+                        "text": result.payload["text"],
+                        "similarity_score": result.score,
+                        "id": result.id
+                    }
+                    matching_chunks.append(chunk_info)
+                    logging.info(f"Found matching chunk (score: {result.score}): {result.payload['text'][:50]}...")
+        
+        logging.info(f"Retrieved {len(matching_chunks)} chunks meeting similarity threshold")
+        
+        # Sort results by similarity score in descending order
+        matching_chunks.sort(key=lambda x: x["similarity_score"], reverse=True)
+        search_result=[]
+        for chunk in matching_chunks:
+            search_result.append(chunk["text"])
+        
+        return search_result
+
 
 # Tester
 if __name__ == "__main__":
