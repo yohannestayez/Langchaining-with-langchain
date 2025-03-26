@@ -1,10 +1,10 @@
-
 import sys
 sys.path.append('.')
 import google.generativeai as genai
 import logging
 from typing import List
 from langchain.memory import ChatMessageHistory
+from datetime import datetime
 from services.qdrant import QdrantManager
 
 # Configure logging
@@ -34,7 +34,7 @@ class MemoryManager:
             logging.error("Failed to add messages to memory: %s", str(e))
             raise
     
-    def archive_conversation(self) -> bool:
+    def archive_conversation(self, responder) -> bool:
         """
         Archive the current conversation to long-term storage by summarizing core content
         with a single LLM prompt, then clear short-term memory.
@@ -45,9 +45,8 @@ class MemoryManager:
                 return False
             
             logging.info("Archiving conversation")
-            summary = self._extract_and_summarize_core_content(self.memory.messages)
+            summary = self._extract_and_summarize_core_content(responder= responder, messages=self.memory.messages)
             summary={"text":summary}
-            logging.info(f"Storing summarized conversation in long-term memory: {summary}")
             self.long_term.store_chunks([summary], collection="conversations")
 
             # Cleaning up short term memory
@@ -62,7 +61,7 @@ class MemoryManager:
             logging.error("Failed to archive conversation: %s", str(e))
             raise
     
-    def _extract_and_summarize_core_content(self, messages: List) -> str:
+    def _extract_and_summarize_core_content(self, responder, messages: List) -> str:
         """
         Use a single LLM prompt to extract and summarize the core parts of the conversation..
         """
@@ -75,35 +74,40 @@ class MemoryManager:
                 conversation_log.append(f"{prefix}{msg.content}")
             
             # Generate summary Prompt
-            prompt = (
-                "Given the following conversation, extract and summarize only the core factual content, "
-                "ignoring greetings, farewells, trivial chatter, and redundant information. "
-                "Focus on key discussion points, facts, decisions, and conclusions. "
-                "Provide a concise summary in plain text.\n\n"
-                "Conversation:\n"
-                f"{chr(10).join(conversation_log)}\n\n"
-                "Summary:"
+            prompt = (F"""
+                Extract the essential factual content from the following conversation for storage in a vector database as long-term memory.
+                Analyze the the conversation and extract only the essential factual content. 
+                Exclude greetings, farewells, small talk, opinions, and repetitive details. 
+                Focus solely on key discussion points, verifiable facts, decisions, and conclusions. 
+                Provide a concise summary in plain text, using complete sentences and avoiding bullet points or extraneous commentary.
+                
+                This is being recorded at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}.
+                This is a conversation between a user and {responder}. Assume that {responder} is speaking whenever it is implied that the AI is responding in the conversation below.
+
+                Conversation:
+                {chr(10).join(conversation_log)}
+
+                Summary:"
+                """
             )
           
             # Generate summary
             response = self.model.generate_content(prompt)
             summary = response.text.strip()
-            # Truncate if necessary
-            if len(summary) > self.max_summary_length:
-                summary = summary[:self.max_summary_length].rsplit(' ', 1)[0] + "..."
-
+            logging.info(f"Generated summary: {summary}")
+            
             
             return summary
         
         except Exception as e:
             logging.error("Failed to summarize conversation: %s", str(e))
             return f"Error summarizing conversation: {str(e)}"
-    def memory_execute(self, user_message: str, bot_response: str) -> None:
+    def memory_execute(self, user_message: str, responder: str, bot_response: str) -> None:
         """Add a user message and bot response to short-term memory."""
         try:
             logging.info("Storing conversation messages")
             self.add_message(user_message.strip(), bot_response.strip())
-            self.archive_conversation()
+            self.archive_conversation(responder= responder)
         except Exception as e:
             logging.error("Failed to add messages to memory: %s", str(e))
             raise
