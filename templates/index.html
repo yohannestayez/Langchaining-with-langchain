@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot UI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Chatbot</h1>
+            <div class="header-right">
+                <div class="characters-dropdown" id="characters-dropdown" aria-haspopup="true" aria-expanded="false">
+                    <button class="characters-button" aria-label="View available characters">Characters</button>
+                    <div class="characters-content" id="characters-content" aria-hidden="true">
+                        <!-- Characters will be added here -->
+                    </div>
+                </div>
+                <button id="upload-button" title="Upload a PDF file">Upload PDF</button>
+            </div>
+        </header>
+        <div class="chat-history" id="chat-history" aria-live="polite">
+            <!-- Messages will be added here -->
+        </div>
+        <div class="input-area">
+            <input type="text" id="message-input" placeholder="Type your message..." aria-label="Type your message">
+            <button id="send-button" aria-label="Send message">Send</button>
+        </div>
+    </div>
+    <div class="upload-overlay" id="upload-overlay" aria-hidden="true">
+        <p>Drop PDF here to upload</p>
+    </div>
+    <input type="file" id="file-input" accept=".pdf" style="display: none;" aria-hidden="true">
+    <script src="/static/script.js"></script>
+</body>
+</html>
