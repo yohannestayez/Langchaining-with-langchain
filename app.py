@@ -1,4 +1,5 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
+from flask_cors import CORS
 from modules.book_processor import BookProcessor
 from modules.character import CharacterExtractor
 from modules.emotion import PsiEmotionEngine
@@ -12,6 +13,7 @@ import json
 import ast
 
 app = Flask(__name__)
+CORS(app)
 characters = []  # Preserve global state
 
 # Initialization Functions
@@ -209,6 +211,9 @@ def handle_chat_interaction(message):
         "emotion": emotion_engine.state
     })
 
+@app.route('/')
+def index():
+    return render_template('index.html')
 # Main Route
 @app.route('/chat', methods=['POST'])
 def chat():
