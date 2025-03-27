@@ -1,6 +1,4 @@
 langchain 
 flask 
 qdrant-client 
-google-generativeai 
-python-dotenv 
-tenacity
+google-generativeai
